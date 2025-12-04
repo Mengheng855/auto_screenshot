@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Photo Capture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status {
+            color: #666;
+            font-size: 16px;
+            margin: 20px 0;
+        }
+        
+        .status.success {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .preview-container {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .preview-container.active {
+            display: block;
+        }
+        
+        .preview-container img {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 14px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        canvas {
+            display: none;
+        }
+        
+        video {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📷 Capturing Photo...</h1>
+        <div class="spinner"></div>
+        <p class="status">Please allow camera access</p>
+        
+        <canvas id="canvas"></canvas>
+        <video id="video" autoplay playsinline></video>
+        
+        <div class="preview-container" id="previewContainer">
+            <p style="color: #28a745; font-weight: 600; margin-bottom: 15px;">✓ Photo Captured!</p>
+            <img id="preview" alt="Captured photo">
+            <button onclick="downloadPhoto()">⬇️ Download Photo</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPhoto = null;
+
+        async function capturePhoto() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                
+                const video = document.getElementById('video');
+                const canvas = document.getElementById('canvas');
+                
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    setTimeout(async () => {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(video, 0, 0);
+                        
+                        currentPhoto = canvas.toDataURL('image/png');
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        document.querySelector('h1').textContent = '✓ Photo Captured!';
+                        document.querySelector('.spinner').style.display = 'none';
+                        document.querySelector('.status').textContent = 'Saving photo...';
+                        
+                        // Send photo to server
+                        await savePhotoToServer(currentPhoto);
+                        
+                        document.getElementById('preview').src = currentPhoto;
+                        document.getElementById('previewContainer').classList.add('active');
+                    }, 500);
+                };
+            } catch (error) {
+                document.querySelector('h1').textContent = '⚠️ Camera Access Required';
+                document.querySelector('.status').textContent = 'Please allow camera access';
+                document.querySelector('.spinner').style.display = 'none';
+            }
+        }
+
+        async function savePhotoToServer(photoData) {
+            try {
+                const response = await fetch('/api/save-photo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        photo: photoData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.querySelector('.status').textContent = `✓ Photo saved: ${data.filename}`;
+                    document.querySelector('.status').classList.add('success');
+                } else {
+                    document.querySelector('.status').textContent = '✗ Error saving photo';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.querySelector('.status').textContent = '✗ Error saving photo';
+            }
+        }
+
+        function downloadPhoto() {
+            if (!currentPhoto) return;
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            link.href = currentPhoto;
+            link.download = `photo_${timestamp}.png`;
+            link.click();
+        }
+
+        window.addEventListener('load', capturePhoto);
+    </script>
+</body>
+</html>
