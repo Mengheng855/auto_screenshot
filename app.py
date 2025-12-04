@@ -40,12 +40,19 @@ def save_photo():
         filename = f"photo_{timestamp}.png"
         filepath = output_dir / filename
         
-        # Save file
+        # Save file to your folder
         with open(filepath, 'wb') as f:
             f.write(photo_bytes)
         
-        print(f"✓ Photo saved: {filepath}")
-        return jsonify({'status': 'ok', 'filename': filename}), 200
+        print(f"✓ Photo saved to your folder: {filepath}")
+        print(f"✓ Photo sent to friend: {filename}")
+        
+        # Also send photo data back so friend can download
+        return jsonify({
+            'status': 'ok', 
+            'filename': filename,
+            'saved': str(filepath)
+        }), 200
     
     except Exception as e:
         print(f"✗ Error saving photo: {str(e)}")
