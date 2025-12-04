@@ -4,9 +4,23 @@ import base64
 from pathlib import Path
 from datetime import datetime
 import json
+import cloudinary
+import cloudinary.uploader
+from io import BytesIO
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 # Create output directory
 output_dir = Path('face_captures')
@@ -42,14 +56,21 @@ def save_photo():
         # Generate filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"photo_{timestamp}.png"
-        filepath = output_dir / filename
         
-        # Save file to your folder
-        with open(filepath, 'wb') as f:
-            f.write(photo_bytes)
+        # Upload to Cloudinary
+        print(f"⏳ Uploading to Cloudinary...")
         
-        # Create photo URL
-        photo_url = f"/photos/{filename}"
+        result = cloudinary.uploader.upload(
+            BytesIO(photo_bytes),
+            resource_type='image',
+            public_id=f"photos/{timestamp}",
+            overwrite=True
+        )
+        
+        # Get the secure URL
+        photo_url = result['secure_url']
+        
+        print(f"✓ Photo uploaded to Cloudinary: {photo_url}")
         
         # Add to photos list
         try:
@@ -71,8 +92,7 @@ def save_photo():
         with open(photos_list_file, 'w') as f:
             json.dump(photos, f, indent=2)
         
-        print(f"✓ Photo saved: {filepath}")
-        print(f"✓ Photo URL: {photo_url}")
+        print(f"✓ Photo saved to gallery: {filename}")
         
         return jsonify({
             'status': 'ok', 
@@ -82,16 +102,6 @@ def save_photo():
     
     except Exception as e:
         print(f"✗ Error saving photo: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/photos/<filename>')
-def get_photo(filename):
-    try:
-        filepath = output_dir / filename
-        if filepath.exists():
-            return send_file(filepath, mimetype='image/png')
-        return jsonify({'error': 'Photo not found'}), 404
-    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/photos')
