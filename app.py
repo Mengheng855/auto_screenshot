@@ -16,10 +16,20 @@ app = Flask(__name__)
 CORS(app)
 
 # Configure Cloudinary
+cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+api_key = os.getenv('CLOUDINARY_API_KEY')
+api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+if not cloud_name or not api_key or not api_secret:
+    print("⚠️  WARNING: Cloudinary credentials not found!")
+    print(f"CLOUDINARY_CLOUD_NAME: {cloud_name}")
+    print(f"CLOUDINARY_API_KEY: {api_key}")
+    print(f"CLOUDINARY_API_SECRET: {api_secret}")
+
 cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+    cloud_name=cloud_name,
+    api_key=api_key,
+    api_secret=api_secret
 )
 
 # Create output directory
